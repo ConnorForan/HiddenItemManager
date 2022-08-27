@@ -35,25 +35,25 @@ mod.HiddenItemManager = include("hidden_item_manager"):Init(mod)
 
 local function DoThing()
   -- For a minute
-  HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
+  mod.HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
   -- For the room
-  HiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+  mod.HiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
   -- For the floor
-  HiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+  mod.HiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_PEFFECT_UPDATE, function(_, player)
   -- Permanant double mutant spider
-  HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_MUTANT_SPIDER, 2)
+  mod.HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_MUTANT_SPIDER, 2)
 end)
 
 ...
 
 -- Do this when you save.
-YourSaveDataTable.HIDDEN_ITEM_DATA = HiddenItemManager:GetSaveData()
+YourSaveDataTable.HIDDEN_ITEM_DATA = mod.HiddenItemManager:GetSaveData()
 
 -- Do this when you load.
-HiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
+mod.HiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
 ```
 
 ### Setup
