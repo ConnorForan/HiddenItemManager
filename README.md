@@ -94,11 +94,11 @@ Not reccomended to use this function in the same group as temporary effects, if 
 Example:
 
 ```lua
-	-- Grants one stack of Caffeine Pill for every nearby enemy. (They'll all be removed if no enemies are nearby).
-	-- This would be called every frame to keep the stack size updated.
-	-- This is silly, probably shouldn't do something like this but it's a good example.
-	local numNearbyEnemies = #Isaac.FindInRadius(player.Position, 125, EntityPartition.ENEMY)
-	HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_CAFFEINE_PILL, numNearbyEnemies)
+-- Grants one stack of Caffeine Pill for every nearby enemy. (They'll all be removed if no enemies are nearby).
+-- This would be called every frame to keep the stack size updated.
+-- This is silly, probably shouldn't do something like this but it's a good example.
+local numNearbyEnemies = #Isaac.FindInRadius(player.Position, 125, EntityPartition.ENEMY)
+HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_CAFFEINE_PILL, numNearbyEnemies)
 ```
 
 ### Has / CountStack
