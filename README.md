@@ -54,12 +54,13 @@ Anyway let's just get into the functions.
 These functions are the best for temporary effects, such as per-room or with a fixed duration.
 
 ```lua
+-- Adds an item effect that won't remove itself on room or floor change.
 HiddenItemManager:Add(player, itemID, duration, numToAdd, group)
+-- Adds an item effect for the current room only.
 HiddenItemManager:AddForRoom(player, itemID, duration, numToAdd, group)
+-- Adds an item effect for the current floor only.
 HiddenItemManager:AddForFloor(player, itemID, duration, numToAdd, group)
 ```
-
-Simple functions to just add an effect(s). As the names imply, `"Add()"` will not have the item expire at the end of rooms or floors.
 
 Duration is optional. Defaults to "infinite" if not specified. 0 and -1 are also interpreted as "infinite".
 
