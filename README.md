@@ -96,7 +96,7 @@ Example:
 ```lua
 -- Grants one stack of Caffeine Pill for every nearby enemy. (They'll all be removed if no enemies are nearby).
 -- This would be called every frame to keep the stack size updated.
--- This is silly, probably shouldn't do something like this but it's a good example.
+-- This is silly, probably shouldn't do something like this with no upper limit but it's a good example.
 local numNearbyEnemies = #Isaac.FindInRadius(player.Position, 125, EntityPartition.ENEMY)
 HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_CAFFEINE_PILL, numNearbyEnemies)
 ```
@@ -176,7 +176,7 @@ If you don't do this, hidden wisps will probably turn into completely normal Lem
 
 ## Possible issues / concerns
 
-`luamod` will either remove all active effects, or try to re-load the active wisp effects from the most recent save (will most likely result in removing them all anyway since the wisps are gone). Just keep that in mind when testing.
+`luamod` will either remove all active wisp effects, or try to re-load the active wisp effects from the most recent save (will most likely result in removing them all anyway since the wisps are gone). Just keep that in mind when testing.
 
 If some kind of conflict causes wisps to disappear unexpectedly, or prevents them from spawning, the library will attempt to respawn the wisps. However, it will only do so 10 times in a row before giving up. It will print errors into the console/logs if this occurs, though.
 
