@@ -1,4 +1,5 @@
 # Hidden Item Manager
+
 A library for Binding of Isaac: Repentance mods for granting the effects of passive items to a player without actually giving the player the item.
 
 This means that the player can be given the effect of the item, but it cannot be rerolled or otherwise lost.
@@ -6,6 +7,7 @@ This means that the player can be given the effect of the item, but it cannot be
 Good for giving the effect of an item temporarily, making the effect of an item innate to a character, and probably all sorts of other stuff.
 
 ## How does it work?
+
 Hidden Lemegeton Item Wisps. The library automatically handles the spawning of management of the wisps so you only have to tell it what you want.
 
 Many of the possible problems with using these wisps have been solved by various people:
@@ -17,13 +19,42 @@ Many of the possible problems with using these wisps have been solved by various
  - The hidden wisps can be properly maintained through quit and continue (assuming SaveData is handled properly and no errors occur).
 
 ## A word of warning
+
 Please keep in mind that the game has a TOTAL FAMILIAR LIMIT of 64 at a time! Each item provided by this library is a wisp familiar!
 
 So given that, please be careful and considerate when using this.
 
 ## How to use?
+
 There's a bunch of different potential applications for this, so I tried to provide a flexible set of functions.
 
+### TL;DR
+
+```lua
+mod.HiddenItemManager = include("hidden_item_manager"):Init(mod)
+
+local function DoThing()
+  -- For a minute
+  HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
+  -- For the room
+  HiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+  -- For the floor
+  HiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+end
+
+mod:AddCallback(ModCallbacks.MC_POST_PEFFECT_UPDATE, function(_, player)
+  -- Permanant double mutant spider
+  HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_MUTANT_SPIDER, 2)
+end)
+
+...
+
+-- Do this when you save.
+YourSaveDataTable.HIDDEN_ITEM_DATA = HiddenItemManager:GetSaveData()
+
+-- Do this when you load.
+HiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
+```
 
 ### Setup
 
@@ -84,7 +115,7 @@ Mixing permanant and temporary effects in the same group is not reccomended if R
 Inspired by CheckFamiliar, this function is good for continually specifying the number of stacks of an item effect that you want active at the moment.
 
 ```lua
-HiddenItemManager:(player, itemID, targetStack, group)
+HiddenItemManager:CheckStack(player, itemID, targetStack, group)
 ```
 
 Effects will be added or removed as needed to meet the desired stack. Good for effects that may need to get added or removed based on logic in your code: You can just call this every frame with whatever the current stack should be.
@@ -117,7 +148,7 @@ Example:
 -- Adds the effect of "Sad Onion" if it does not already exist in the group "MY_GROUP".
 -- Using a group makes sure this stacks properly even if another use-case has applied the Sad Onion as an effect.
 if not HiddenItemManager:Has(player, CollectibleType.COLLECTIBLE_SAD_ONION, "MY_GROUP") then
-	HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, -1, 1, "MY_GROUP")
+  HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, -1, 1, "MY_GROUP")
 end
 ```
 
@@ -146,8 +177,8 @@ Would return a table with a format akin to this:
 
 ```lua
 {
-	[CollectibleType.COLLECTIBLE_SAD_ONION] = 1,
-	[CollectibleType.COLLECTIBLE_CAFFEINE_PILL] = 3,
+  [CollectibleType.COLLECTIBLE_SAD_ONION] = 1,
+  [CollectibleType.COLLECTIBLE_CAFFEINE_PILL] = 3,
 }
 ```
 
