@@ -19,6 +19,8 @@
 
 local HiddenItemManager = {}
 
+local game = Game()
+
 local kWispPos = Vector(-1000, -1000)
 local kZeroVector = Vector.Zero
 
@@ -82,6 +84,11 @@ local DATA = {}
 -- Info on ALL hidden item wisps, simply just mapped by their InitSeeds.
 -- This table is good for wisps looking up their own data, as well as for SaveData.
 local INDEX = {}
+
+-- Wisp keys that should be removed if they appear.
+-- Primarily we put keys in here if we find wisps we want to remove during run continue, since at
+-- that time the wisps haven't initialized yet so we can't remove them until they appear.
+local WISP_KILL_BUFFER = {}
 
 -- Removes all empty subtables from a given table.
 local function CleanUp(tab)
@@ -191,7 +198,12 @@ local function RemoveWisp(key)
 	local player = GetPlayer(tab)
 	local item = tab.Item
 	
-	KillWisp(wisp)
+	if wisp then
+		KillWisp(wisp)
+	else
+		-- Can't find the wisp, but remove it if it shows up later.
+		WISP_KILL_BUFFER[key] = true
+	end
 	
 	if player then
 		ClearData(GetKey(player), tab.Group, item, key)
@@ -427,11 +439,18 @@ AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, continuing)
 end)
 
 function HiddenItemManager:ItemWispUpdate(wisp)
+	local key = GetKey(wisp)
+	
+	if WISP_KILL_BUFFER[key] then
+		KillWisp(wisp)
+		WISP_KILL_BUFFER[key] = nil
+		return
+	end
+	
 	if not wisp:GetData().isHiddenItemManagerWisp then return end
 	
 	KeepWispHidden(wisp)
 	
-	local key = GetKey(wisp)
 	local data = INDEX[key]
 	
 	if not data then
@@ -490,6 +509,8 @@ end
 AddCallback(ModCallbacks.MC_POST_UPDATE, HiddenItemManager.PostUpdate)
 
 function HiddenItemManager:PostNewRoom()
+	WISP_KILL_BUFFER = {}
+	
 	for key, data in pairs(INDEX) do
 		if data.RemoveOnNewRoom and data.AddTime < game:GetFrameCount() then
 			RemoveWisp(key)
