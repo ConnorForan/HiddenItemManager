@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 1.0
+-- Version 1.2
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -64,6 +64,15 @@ local function LOG_ERROR(str)
 	Isaac.DebugString(fullStr)
 end
 
+local function LOG(str)
+	local prefix = ""
+	if HiddenItemManager.Mod then
+		prefix = "" .. HiddenItemManager.Mod.Name .. "."
+	end
+	local fullStr = "[" .. prefix .. "HiddenItemManager]: " .. str
+	Isaac.DebugString(fullStr)
+end
+
 local kDefaultGroup = "HIDDEN_ITEM_MANAGER_DEFAULT"
 
 local function GetGroup(group)
@@ -74,8 +83,6 @@ local function GetGroup(group)
 	end
 end
 
--- I maintain two seperate tables for my data because I like overdesigning things.
-
 -- Hidden item wisp data sorted into a nested table.
 -- player.InitSeed -> groupName -> CollectibleType -> wisp.InitSeed -> dataTable
 -- This table is good for API lookups like checking if an item effect is active, or counting them.
@@ -85,10 +92,8 @@ local DATA = {}
 -- This table is good for wisps looking up their own data, as well as for SaveData.
 local INDEX = {}
 
--- Wisp keys that should be removed if they appear.
--- Primarily we put keys in here if we find wisps we want to remove during run continue, since at
--- that time the wisps haven't initialized yet so we can't remove them until they appear.
-local WISP_KILL_BUFFER = {}
+-- Wisps slated for removal, by InitSeed key.
+local WISPS_TO_REMOVE = {}
 
 -- Removes all empty subtables from a given table.
 local function CleanUp(tab)
@@ -168,7 +173,9 @@ end
 -- Given the data entry for a hidden item, gets the player from the contained EntityPtr.
 -- If it's not found, tries checking the Player of the wisp too.
 local function GetPlayer(tab)
-	if not tab or not tab.Player or not tab.Player.Ref or not tab.Player.Ref:Exists() then
+	if not tab then return end
+	
+	if not tab.Player or not tab.Player.Ref or not tab.Player.Ref:Exists() then
 		local wisp = GetWisp(tab)
 		if wisp and wisp.Player and wisp.Player:Exists() then
 			tab.Player = EntityPtr(wisp.Player)
@@ -194,16 +201,10 @@ end
 -- Removes the hidden item wisp from both data tables with the given key.
 local function RemoveWisp(key)
 	local tab = INDEX[key]
-	local wisp = GetWisp(tab)
 	local player = GetPlayer(tab)
 	local item = tab.Item
 	
-	if wisp then
-		KillWisp(wisp)
-	else
-		-- Can't find the wisp, but remove it if it shows up later.
-		WISP_KILL_BUFFER[key] = true
-	end
+	WISPS_TO_REMOVE[key] = true
 	
 	if player then
 		ClearData(GetKey(player), tab.Group, item, key)
@@ -238,7 +239,9 @@ local function InitializeWisp(wisp)
 	local tab = INDEX[wispKey]
 	tab.WispKey = wispKey
 	tab.Wisp = EntityPtr(wisp)
+	tab.PlayerKey = GetKey(wisp.Player)
 	tab.Player = EntityPtr(wisp.Player)
+	tab.Initialized = true
 end
 
 -- Spawns a hidden item wisp.
@@ -380,16 +383,39 @@ end
 --------------------------------------------------
 -- Save/Load
 
+local function TableSize(tab)
+	local count = 0
+	for k, v in pairs(tab) do
+		count = count + 1
+	end
+	return count
+end
+
 -- Returns the table that should be included in your SaveData when you save the game.
 -- Pass this table into HiddenItemManager:LoadData() when you load your SaveData.
 function HiddenItemManager:GetSaveData()
-	return INDEX
+	LOG("Saving INDEX of size: " .. TableSize(INDEX))
+	LOG("Saving WISPS_TO_REMOVE of size: " .. TableSize(WISPS_TO_REMOVE))
+	
+	return {
+		INDEX = INDEX,
+		WISPS_TO_REMOVE = WISPS_TO_REMOVE,
+	}
 end
 
 -- Should be called whenever you load the SaveData for your mod to re-initialize any existing item wisps.
 -- Give it the table returned by HiddenItemManager:GetSaveData().
 function HiddenItemManager:LoadData(saveData)
-	INDEX = saveData or {}
+	if saveData then
+		INDEX = saveData.INDEX or {}
+		WISPS_TO_REMOVE = saveData.WISPS_TO_REMOVE or {}
+		for _, data in pairs(INDEX) do
+			data.Initialized = false
+		end
+	else
+		INDEX = {}
+		WISPS_TO_REMOVE = {}
+	end
 	DATA = {}
 	HiddenItemManager:CheckAllWisps()
 end
@@ -403,10 +429,15 @@ function HiddenItemManager:CheckWisp(wisp)
 	
 	if not wisp:GetData().isHiddenItemManagerWisp and wispData then
 		-- This wisp isn't marked as one of our wisps, but we're supposed to have a wisp with this InitSeed.
-		if wispData.Ref and wispData.Ref:Exists() and wispData.Ref:GetData().isHiddenItemManagerWisp then
-			-- Nevermind, another wisp with this InitSeed already exists. This can happen with Bazarus.
-			-- Remove this one then, we don't want two wisps with the same seed.
-			wisp:Remove()
+		KeepWispHidden(wisp)
+		
+		-- Check if there's already an active wisp for this effect.
+		local existingWisp = GetWisp(wispData)
+		if existingWisp then
+			-- Another wisp with this InitSeed already exists.
+			-- This can happen with Bazarus - familiars seem to get recreated to some extend when he flips.
+			-- Remove this one regardless, we don't want two wisps with the same seed.
+			wisp:GetData().isDuplicateHiddenItemManagerWisp = true
 			return
 		end
 		
@@ -438,45 +469,88 @@ AddCallback(ModCallbacks.MC_POST_GAME_STARTED, function(_, continuing)
 	end
 end)
 
+function HiddenItemManager:PlayerUpdate(player)
+	player:GetData().hiddenItemManagerLastUpdate = game:GetFrameCount()
+end
+AddCallback(ModCallbacks.MC_POST_PLAYER_UPDATE, HiddenItemManager.PlayerUpdate)
+
+local function IsHiddenBazarus(player)
+	local lastUpdate = player:GetData().hiddenItemManagerLastUpdate
+	return player and (not lastUpdate or game:GetFrameCount() - lastUpdate > 1)
+			and (player:GetPlayerType() == PlayerType.PLAYER_LAZARUS_B or player:GetPlayerType() == PlayerType.PLAYER_LAZARUS2_B)
+end
+
+-- The keys of any wisps we've removed this frame.
+local RemovedWisps = {}
+
 function HiddenItemManager:ItemWispUpdate(wisp)
-	local key = GetKey(wisp)
-	
-	if WISP_KILL_BUFFER[key] then
+	if wisp:GetData().isDuplicateHiddenItemManagerWisp then
+		KeepWispHidden(wisp)
 		KillWisp(wisp)
-		WISP_KILL_BUFFER[key] = nil
 		return
 	end
 	
-	if not wisp:GetData().isHiddenItemManagerWisp then return end
+	local key = GetKey(wisp)
 	
-	KeepWispHidden(wisp)
-	
-	local data = INDEX[key]
-	
-	if not data then
-		-- Tagged as a hidden item wisp, but no associated data.
-		-- A weird case (aside from luamod) but not really a concern. Remove it.
-		-- Make certain there's no data left over for this wisp, though.
-		for playerKey, playerData in pairs(DATA) do
-			for groupName, groupData in pairs(playerData) do
-				ClearData(playerKey, groupName, wisp.SubType, key)
+	if wisp:GetData().isHiddenItemManagerWisp then
+		KeepWispHidden(wisp)
+		
+		local data = INDEX[key]
+		
+		if not data then
+			-- Tagged as a hidden item wisp, but no associated data.
+			-- A weird case (aside from luamod) but not really a concern. Remove it.
+			-- Make certain there's no data left over for this wisp, though.
+			for playerKey, playerData in pairs(DATA) do
+				for groupName, groupData in pairs(playerData) do
+					ClearData(playerKey, groupName, wisp.SubType, key)
+				end
 			end
+			wisp:GetData().isHiddenItemManagerWisp = false
+			WISPS_TO_REMOVE[key] = true
+		elseif data.Duration and data.AddTime + data.Duration < game:GetFrameCount() then
+			-- Timed out.
+			RemoveWisp(key)
 		end
-		KillWisp(wisp)
-	elseif data.Duration and data.AddTime + data.Duration < game:GetFrameCount() then
-		-- Timed out.
-		RemoveWisp(key)
+	end
+	
+	-- Kill the wisp if we're expecting to do so.
+	-- Trying to account for some weird issues where Bazarus's inactive flip's wisps update once, the first time you change rooms.
+	-- The hidden Bazarus' wisps will also still respawn even if the game "successfully" Remove()'d them post-flip.
+	-- So don't try to remove wisps attached to hidden Bazarus.
+	-- Also it looks like certain familiars get re-initialized somehow when Bazarus flips? Or something like that.
+	-- This ends up triggering twice in one frame, same initseed/data, but different pointer address and FrameCount is reset.
+	if WISPS_TO_REMOVE[key] then
+		KeepWispHidden(wisp)
+		if not IsHiddenBazarus(wisp.Player) then
+			KillWisp(wisp)
+			-- Don't actually unset WISPS_TO_REMOVE yet, since Bazarus does weird things where it seems like
+			-- two nigh-identical versions a familiar update during the same frame during a flip.
+			-- We want to catch and remove both versions, so just mark that a removal has been done for now.
+			RemovedWisps[key] = true
+		end
 	end
 end
 AddCallback(ModCallbacks.MC_FAMILIAR_UPDATE, HiddenItemManager.ItemWispUpdate, FamiliarVariant.ITEM_WISP)
 
+-- Clear any keys from WISPS_TO_REMOVE if we have removed those wisps this frame.
+-- We can potentially remove more than one wisp for the same InitSeed in the same frame due to Bazarus flip shenanigans.
+function HiddenItemManager:ResolveRemovedWisps()
+	for key, _ in pairs(RemovedWisps) do
+		WISPS_TO_REMOVE[key] = nil
+	end
+	RemovedWisps = {}
+end
+
 function HiddenItemManager:PostUpdate()
+	HiddenItemManager:ResolveRemovedWisps()
+	
 	local wispsToRespawn = {}
 	
 	for key, data in pairs(INDEX) do
 		local wisp = GetWisp(data)
 		local player = GetPlayer(data)
-		if not wisp then
+		if data.Initialized and not wisp then
 			if not player then
 				--LOG_ERROR("Wisp `" .. key .. "` disappeared and player could not be found. Giving up on item #" .. data.Item .. " from group: " .. data.Group)
 				RemoveWisp(key)
@@ -509,8 +583,6 @@ end
 AddCallback(ModCallbacks.MC_POST_UPDATE, HiddenItemManager.PostUpdate)
 
 function HiddenItemManager:PostNewRoom()
-	WISP_KILL_BUFFER = {}
-	
 	for key, data in pairs(INDEX) do
 		if data.RemoveOnNewRoom and data.AddTime < game:GetFrameCount() then
 			RemoveWisp(key)
