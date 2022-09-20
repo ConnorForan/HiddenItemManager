@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 1.2
+-- Version 1.3
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -508,9 +508,15 @@ function HiddenItemManager:ItemWispUpdate(wisp)
 			end
 			wisp:GetData().isHiddenItemManagerWisp = false
 			WISPS_TO_REMOVE[key] = true
-		elseif data.Duration and data.AddTime + data.Duration < game:GetFrameCount() then
-			-- Timed out.
-			RemoveWisp(key)
+		else
+			-- Check if timed wisp has expired.
+			local timedOut = data.Duration and data.AddTime + data.Duration < game:GetFrameCount()
+			-- Check this with wisp.Player instead of the player EntityPtr stored in the data to get the correct Bazarus.
+			-- Main thing this triggers on is Genesis.
+			local playerGone = not wisp.Player or GetKey(wisp.Player) ~= data.PlayerKey
+			if timedOut or playerGone then
+				RemoveWisp(key)
+			end
 		end
 	end
 	

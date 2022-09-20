@@ -17,6 +17,8 @@ Many of the possible problems with using these wisps have been solved by various
  - The hidden wisps do not fire tears if you have Book of Virtues.
  - The hidden wisps remove their effects properly when removed and do not make any effects or noise on "death".
  - The hidden wisps can be properly maintained through quit and continue (assuming SaveData is handled properly and no errors occur).
+ - Each form of Tainted Lazarus will keep seperate sets of hidden items, even while flipping.
+ - All hidden wisps are removed when Genesis is used.
 
 ## A word of warning
 
@@ -93,7 +95,10 @@ HiddenItemManager:AddForRoom(player, itemID, duration, numToAdd, group)
 HiddenItemManager:AddForFloor(player, itemID, duration, numToAdd, group)
 ```
 
-Duration is optional. Defaults to "infinite" if not specified. 0 and -1 are also interpreted as "infinite".
+Only the player and the item ID are required.
+ - `duration` defaults to "infinite" if not specified. 0 and -1 are also interpreted as "infinite".
+ - `numToAdd` defaults to 1.
+ - `group` defaults to the "HIDDEN_ITEM_MANAGER_DEFAULT" group.
 
 Examples:
 
@@ -108,7 +113,9 @@ HiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 HiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 ```
 
-Mixing permanant and temporary effects in the same group is not reccomended if Removing or Counting permanant effects is needed.
+Mixing "permanant" and temporary effects in the same group is not reccomended if removing or counting permanant effects is needed.
+
+Be careful if you use `Add(...)` without a `duration`. For "permanant" effects, prefer `CheckStack()` below, or otherwise make sure to keep track of the current stack of effects using the `Has()` or `CountStack()` functions.
 
 ### CheckStack
 
@@ -147,6 +154,7 @@ Example:
 ```lua
 -- Adds the effect of "Sad Onion" if it does not already exist in the group "MY_GROUP".
 -- Using a group makes sure this stacks properly even if another use-case has applied the Sad Onion as an effect.
+-- CheckStack() might be better for a use-case like this, however.
 if not HiddenItemManager:Has(player, CollectibleType.COLLECTIBLE_SAD_ONION, "MY_GROUP") then
   HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, -1, 1, "MY_GROUP")
 end
