@@ -1,24 +1,24 @@
 # Hidden Item Manager
 
-A library for Binding of Isaac: Repentance mods for granting the effects of passive items to a player without actually giving the player the item.
+A library for _[Binding of Isaac: Repentance](https://store.steampowered.com/app/1426300/The_Binding_of_Isaac_Repentance/)_ mods for granting the effects of passive items to a player without actually giving the player the item.
 
 This means that the player can be given the effect of the item, but it cannot be rerolled or otherwise lost.
 
-Good for giving the effect of an item temporarily, making the effect of an item innate to a character, and probably all sorts of other stuff.
+This is useful for giving the effect of an item temporarily, making the effect of an item innate to a character, and probably all sorts of other stuff.
 
 ## How does it work?
 
-Hidden Lemegeton Item Wisps. The library automatically handles the spawning of management of the wisps so you only have to tell it what you want.
+Hidden [Lemegeton](https://bindingofisaacrebirth.fandom.com/wiki/Lemegeton) item wisps. The library automatically handles the spawning and management of the wisps so you only have to tell it what you want.
 
-Many of the possible problems with using these wisps have been solved by various people:
+Many of the possible problems with naively using item wisps is handled by the library:
 
  - The hidden wisps are removed from orbiting the player, so other wisps aren't affected.
- - The hidden wisps are immune to Sacrificial Altar.
- - The hidden wisps do not fire tears if you have Book of Virtues.
+ - The hidden wisps are immune to [Sacrificial Altar](https://bindingofisaacrebirth.fandom.com/wiki/Sacrificial_Altar).
+ - The hidden wisps do not fire tears if you have [Book of Virtues](https://bindingofisaacrebirth.fandom.com/wiki/Book_of_Virtues).
  - The hidden wisps remove their effects properly when removed and do not make any effects or noise on "death".
- - The hidden wisps can be properly maintained through quit and continue (assuming SaveData is handled properly and no errors occur).
- - Each form of Tainted Lazarus will keep seperate sets of hidden items, even while flipping.
- - All hidden wisps are removed when Genesis is used.
+ - The hidden wisps can be properly maintained through quit and continue (assuming save data is handled properly and no errors occur).
+ - Each form of [Tainted Lazarus](https://bindingofisaacrebirth.fandom.com/wiki/Tainted_Lazarus) will keep seperate sets of hidden items, even while flipping.
+ - All hidden wisps are removed when [Genesis](https://bindingofisaacrebirth.fandom.com/wiki/Genesis) is used.
 
 ## A word of warning
 
@@ -33,38 +33,51 @@ There's a bunch of different potential applications for this, so I tried to prov
 ### TL;DR
 
 ```lua
-mod.HiddenItemManager = include("hidden_item_manager"):Init(mod)
+local hiddenItemManager = require("myMod.lib.hidden_item_manager")
 
-local function DoThing()
+local mod = RegisterMod("myMod", 1)
+hiddenItemManager:Init(mod)
+
+local function doThing()
   -- For a minute
-  mod.HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
+  hiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
+
   -- For the room
-  mod.HiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+  hiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+
   -- For the floor
-  mod.HiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+  hiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_PEFFECT_UPDATE, function(_, player)
   -- Permanant double mutant spider
-  mod.HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_MUTANT_SPIDER, 2)
+  hiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_MUTANT_SPIDER, 2)
 end)
 
 ...
 
 -- Do this when you save.
-YourSaveDataTable.HIDDEN_ITEM_DATA = mod.HiddenItemManager:GetSaveData()
+YourSaveDataTable.HIDDEN_ITEM_DATA = hiddenItemManager:GetSaveData()
 
 -- Do this when you load.
-mod.HiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
+hiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
 ```
 
 ### Setup
 
-`"include()"` the library once when your mod first loads. Make sure to call its Init function and pass a reference to your mod, as well.
+Before using the methods of the library, you have to initialize it. Do this when your mod first loads in the "main.lua" file:
 
 ```lua
-mod.HiddenItemManager = include("hidden_item_manager"):Init(mod)
+-- Imports belong at the top of the file.
+local hiddenItemManager = require("myMod.lib.hidden_item_manager")
+
+-- Later on, after you have registered your mod:
+hiddenItemManager:Init(mod)
 ```
+
+Note that the library location should be namespaced to avoid conflicts with other mods. (This is described in more detail in [the IsaacScript docs](https://isaacscript.github.io/main/isaacscript-in-lua#step-2---put-it-in-your-mod).)
+
+Don't ever use `include` to import the library, unless you are only using it inside of a single file.
 
 ### What are "Groups?"
 
