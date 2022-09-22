@@ -68,11 +68,16 @@ hiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
 Before using the methods of the library, you have to initialize it. Do this when your mod first loads in the "main.lua" file:
 
 ```lua
-local hiddenItemManager = require("hidden_item_manager")
+-- Imports belong at the top of the file.
+local hiddenItemManager = require("myMod.lib.hidden_item_manager")
+
+-- Later on, after you have registered your mod:
 hiddenItemManager:Init(mod)
 ```
 
-(Don't ever use `include` to import the library, unless you are only using it inside of a single file.)
+Note that the library location should be namespaced to avoid conflicts with other mods. (This is described in more detail in [the IsaacScript docs](https://isaacscript.github.io/main/isaacscript-in-lua#step-2---put-it-in-your-mod).)
+
+Don't ever use `include` to import the library, unless you are only using it inside of a single file.
 
 ### What are "Groups?"
 
