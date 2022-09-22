@@ -65,12 +65,14 @@ hiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
 
 ### Setup
 
-`require` the library once when your mod first loads. (Don't ever use `include`, unless you are only using the library inside of a single file.) Then, call the `Init` method with a reference to your mod:
+Before using the methods of the library, you have to initialize it. Do this when your mod first loads in the "main.lua" file:
 
 ```lua
 local hiddenItemManager = require("hidden_item_manager")
 hiddenItemManager:Init(mod)
 ```
+
+(Don't ever use `include` to import the library, unless you are only using it inside of a single file.)
 
 ### What are "Groups?"
 
