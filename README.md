@@ -33,41 +33,43 @@ There's a bunch of different potential applications for this, so I tried to prov
 ### TL;DR
 
 ```lua
-local mod = RegisterMod("myMod", 1)
+local hiddenItemManager = require("myMod.lib.hidden_item_manager")
 
-local hiddenItemManager = require("myMod.lib.hidden_item_manager"):Init(mod)
+local mod = RegisterMod("myMod", 1)
+hiddenItemManager:Init(mod)
 
 local function doThing()
   -- For a minute
-  mod.HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
+  hiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
 
   -- For the room
-  mod.HiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+  hiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 
   -- For the floor
-  mod.HiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+  hiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_PEFFECT_UPDATE, function(_, player)
   -- Permanant double mutant spider
-  mod.HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_MUTANT_SPIDER, 2)
+  hiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_MUTANT_SPIDER, 2)
 end)
 
 ...
 
 -- Do this when you save.
-YourSaveDataTable.HIDDEN_ITEM_DATA = mod.HiddenItemManager:GetSaveData()
+YourSaveDataTable.HIDDEN_ITEM_DATA = hiddenItemManager:GetSaveData()
 
 -- Do this when you load.
-mod.HiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
+hiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
 ```
 
 ### Setup
 
-`require` or `include` the library once when your mod first loads. Then, call the `Init` method with a reference to your mod:
+`require` the library once when your mod first loads. (Don't ever use `include`, unless you are only using the library inside of a single file.) Then, call the `Init` method with a reference to your mod:
 
 ```lua
-mod.HiddenItemManager = include("hidden_item_manager"):Init(mod)
+local hiddenItemManager = require("hidden_item_manager")
+hiddenItemManager:Init(mod)
 ```
 
 ### What are "Groups?"
