@@ -10,7 +10,7 @@ This is useful for giving the effect of an item temporarily, making the effect o
 
 Hidden [Lemegeton](https://bindingofisaacrebirth.fandom.com/wiki/Lemegeton) item wisps. The library automatically handles the spawning and management of the wisps so you only have to tell it what you want.
 
-Many of the possible problems with naively using item wisps is handled by the library:
+Many of the possible problems with using item wisps in this manner are handled by the library:
 
  - The hidden wisps are removed from orbiting the player, so other wisps aren't affected.
  - The hidden wisps are immune to [Sacrificial Altar](https://bindingofisaacrebirth.fandom.com/wiki/Sacrificial_Altar).
@@ -68,16 +68,26 @@ hiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
 Before using the methods of the library, you have to initialize it. Do this when your mod first loads in the "main.lua" file:
 
 ```lua
--- Imports belong at the top of the file.
+-- In this example, the library file would be located at `...\The Binding of Isaac Rebirth\mods\<Your Mod's Folder>\myMod\lib\hidden_item_manager.lua`
+-- But replace "myMod" with a different folder name, unique to your mod, to avoid collisions with other mods!
 local hiddenItemManager = require("myMod.lib.hidden_item_manager")
 
--- Later on, after you have registered your mod:
+-- Make sure to call the Init function ONCE, before using any of the library's functions, and pass your mod reference to it.
 hiddenItemManager:Init(mod)
 ```
 
-Note that the library location should be namespaced to avoid conflicts with other mods. (This is described in more detail in [the IsaacScript docs](https://isaacscript.github.io/main/isaacscript-in-lua#step-2---put-it-in-your-mod).)
+You can then access the same instance of the library from any file inside your mod by calling "require" again (you only ever need to call `:Init()` ONCE). Remember that when using "require" you have to put things within a folder uniquely-named for your mod to avoid collisions with other mods!
 
-Don't ever use `include` to import the library, unless you are only using it inside of a single file.
+```lua
+-- Accessing the hiddenItemManager from any other file in your mod.
+local hiddenItemManager = require("myMod.lib.hidden_item_manager")
+```
+
+You could use "include" as well, but remember that you can only do this ONCE within your entire mod, since "include" always creates a new, uninitialized instance of the library.
+
+```lua
+local hiddenItemManager = include("hidden_item_manager"):Init(mod)
+```
 
 ### What are "Groups?"
 
@@ -101,11 +111,11 @@ These functions are the best for temporary effects, such as per-room or with a f
 
 ```lua
 -- Adds an item effect that won't remove itself on room or floor change.
-HiddenItemManager:Add(player, itemID, duration, numToAdd, group)
+hiddenItemManager:Add(player, itemID, duration, numToAdd, group)
 -- Adds an item effect for the current room only.
-HiddenItemManager:AddForRoom(player, itemID, duration, numToAdd, group)
+hiddenItemManager:AddForRoom(player, itemID, duration, numToAdd, group)
 -- Adds an item effect for the current floor only.
-HiddenItemManager:AddForFloor(player, itemID, duration, numToAdd, group)
+hiddenItemManager:AddForFloor(player, itemID, duration, numToAdd, group)
 ```
 
 Only the player and the item ID are required.
@@ -117,13 +127,13 @@ Examples:
 
 ```lua
 -- Add the Sad Onion effect for 60 seconds (30*60 frames).
-HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
+hiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, 30 * 60)
 
 -- Add the Sad Onion effect for the current room.
-HiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+hiddenItemManager:AddForRoom(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 
 -- Add the Sad Onion effect for the current floor.
-HiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
+hiddenItemManager:AddForFloor(player, CollectibleType.COLLECTIBLE_SAD_ONION)
 ```
 
 Mixing "permanant" and temporary effects in the same group is not reccomended if removing or counting permanant effects is needed.
@@ -135,7 +145,7 @@ Be careful if you use `Add(...)` without a `duration`. For "permanant" effects, 
 Inspired by CheckFamiliar, this function is good for continually specifying the number of stacks of an item effect that you want active at the moment.
 
 ```lua
-HiddenItemManager:CheckStack(player, itemID, targetStack, group)
+hiddenItemManager:CheckStack(player, itemID, targetStack, group)
 ```
 
 Effects will be added or removed as needed to meet the desired stack. Good for effects that may need to get added or removed based on logic in your code: You can just call this every frame with whatever the current stack should be.
@@ -149,17 +159,17 @@ Example:
 -- This would be called every frame to keep the stack size updated.
 -- This is silly, probably shouldn't do something like this with no upper limit but it's a good example.
 local numNearbyEnemies = #Isaac.FindInRadius(player.Position, 125, EntityPartition.ENEMY)
-HiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_CAFFEINE_PILL, numNearbyEnemies)
+hiddenItemManager:CheckStack(player, CollectibleType.COLLECTIBLE_CAFFEINE_PILL, numNearbyEnemies)
 ```
 
 ### Has / CountStack
 
 ```lua
 -- Returns true if the player has the given item in the specified group.
-HiddenItemManager:Has(player, itemID, group)
+hiddenItemManager:Has(player, itemID, group)
 
 -- Returns the number of copies of a given item the player has in the specified group.
-HiddenItemManager:CountStack(player, itemID, group)
+hiddenItemManager:CountStack(player, itemID, group)
 ```
 
 Example:
@@ -168,8 +178,8 @@ Example:
 -- Adds the effect of "Sad Onion" if it does not already exist in the group "MY_GROUP".
 -- Using a group makes sure this stacks properly even if another use-case has applied the Sad Onion as an effect.
 -- CheckStack() might be better for a use-case like this, however.
-if not HiddenItemManager:Has(player, CollectibleType.COLLECTIBLE_SAD_ONION, "MY_GROUP") then
-  HiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, -1, 1, "MY_GROUP")
+if not hiddenItemManager:Has(player, CollectibleType.COLLECTIBLE_SAD_ONION, "MY_GROUP") then
+  hiddenItemManager:Add(player, CollectibleType.COLLECTIBLE_SAD_ONION, -1, 1, "MY_GROUP")
 end
 ```
 
@@ -177,11 +187,11 @@ end
 
 ```lua
 -- Removes one copy of the given item from the specified group.
-HiddenItemManager:Remove(player, itemID, group)
+hiddenItemManager:Remove(player, itemID, group)
 -- Removes ALL copies of the given item from the specified group.
-HiddenItemManager:RemoveStack(player, itemID, group)
+hiddenItemManager:RemoveStack(player, itemID, group)
 -- Removes ALL effects from the specified group.
-HiddenItemManager:RemoveAll(player, group)
+hiddenItemManager:RemoveAll(player, group)
 ```
 
 Functions for removing effects. Primarily needed for removing otherwise permanant effects (though `"CheckStack()"` works well for that purpose). `"Remove()"` will remove the oldest effect for the given item, so it's not reccomended to put temporary and "permanant" effects in the same group unless they'll never use the same items.
@@ -189,7 +199,7 @@ Functions for removing effects. Primarily needed for removing otherwise permanan
 ### GetStacks
 
 ```lua
-HiddenItemManager:GetStacks(player, group)
+hiddenItemManager:GetStacks(player, group)
 ```
 
 Returns a table containing the counts of all items the player currently has, within the specified group.
@@ -213,7 +223,7 @@ To keep the wisps behaving correctly on quit and continue, you'll need to add it
 Essentially, whenever you save your mod's data (such as on MC_POST_NEW_LEVEL and MC_PRE_GAME_EXIT), be sure to include this library's data:
 
 ```lua
-local hiddenItemData = HiddenItemManager:GetSaveData()
+local hiddenItemData = hiddenItemManager:GetSaveData()
 -- Include` hiddenItemData` in your SaveData table!
 YourSaveDataTable.HIDDEN_ITEM_DATA = hiddenItemData
 ```
@@ -221,7 +231,7 @@ YourSaveDataTable.HIDDEN_ITEM_DATA = hiddenItemData
 Then, when you Load your SaveData on run continue, make sure to pass the data back to the library:
 
 ```lua
-HiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
+hiddenItemManager:LoadData(YourSaveDataTable.HIDDEN_ITEM_DATA)
 ```
 
 If you don't do this, hidden wisps will probably turn into completely normal Lemegeton wisps on continue.
