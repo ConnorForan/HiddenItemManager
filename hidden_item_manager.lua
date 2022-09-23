@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 1.3
+-- Version 1.4
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -45,6 +45,7 @@ function HiddenItemManager:Init(mod)
 		for _, tab in pairs(Callbacks) do
 			mod:AddCallback(tab.Callback, tab.Func, tab.Param)
 		end
+		HiddenItemManager.WispTag = "HiddenItemManager:" .. mod.Name
 		
 		initialized = true
 	end
@@ -91,6 +92,9 @@ local DATA = {}
 -- Info on ALL hidden item wisps, simply just mapped by their InitSeeds.
 -- This table is good for wisps looking up their own data, as well as for SaveData.
 local INDEX = {}
+
+-- Cache for EntityPtrs to wisps.
+local WISP_PTRS = {}
 
 -- Wisps slated for removal, by InitSeed key.
 local WISPS_TO_REMOVE = {}
@@ -162,28 +166,23 @@ local function GetKey(entity)
 	return ""..entity.InitSeed
 end
 
--- Given the data entry for a hidden item, gets the wisp from the contained EntityPtr, if possible.
+-- Given the data entry for a hidden item, gets the wisp.
 local function GetWisp(tab)
-	if not tab or not tab.Wisp or not tab.Wisp.Ref or not tab.Wisp.Ref:Exists() then
-		return nil
+	if not tab then return end
+	
+	local ptr = WISP_PTRS[tab.WispKey]
+	if ptr and ptr.Ref then
+		return ptr.Ref:ToFamiliar()
 	end
-	return tab.Wisp.Ref:ToFamiliar()
 end
 
--- Given the data entry for a hidden item, gets the player from the contained EntityPtr.
--- If it's not found, tries checking the Player of the wisp too.
+-- Given the data entry for a hidden item, gets the player.
 local function GetPlayer(tab)
 	if not tab then return end
 	
-	if not tab.Player or not tab.Player.Ref or not tab.Player.Ref:Exists() then
-		local wisp = GetWisp(tab)
-		if wisp and wisp.Player and wisp.Player:Exists() then
-			tab.Player = EntityPtr(wisp.Player)
-			return wisp.Player
-		end
-		return nil
+	if wisp and wisp.Player and wisp.Player:Exists() then
+		return wisp.Player
 	end
-	return tab.Player.Ref:ToPlayer()
 end
 
 local function KillWisp(wisp)
@@ -227,20 +226,31 @@ local function KeepWispHidden(wisp)
 	wisp.Velocity = kZeroVector
 end
 
+local function TagWisp(wisp)
+	wisp:GetData()[HiddenItemManager.WispTag] = true
+end
+
+local function UntagWisp(wisp)
+	wisp:GetData()[HiddenItemManager.WispTag] = nil
+end
+
+local function IsManagedWisp(wisp)
+	return wisp:GetData()[HiddenItemManager.WispTag]
+end
+
 -- Initializes (or re-initializes) an item wisp to be one of our hidden ones.
 local function InitializeWisp(wisp)
 	wisp:AddEntityFlags(EntityFlag.FLAG_NO_QUERY | EntityFlag.FLAG_NO_REWARD)
 	wisp:ClearEntityFlags(EntityFlag.FLAG_APPEAR)
 	KeepWispHidden(wisp)
 	wisp:RemoveFromOrbit()
-	wisp:GetData().isHiddenItemManagerWisp = true
+	TagWisp(wisp)
 	
 	local wispKey = GetKey(wisp)
 	local tab = INDEX[wispKey]
 	tab.WispKey = wispKey
-	tab.Wisp = EntityPtr(wisp)
+	WISP_PTRS[wispKey] = EntityPtr(wisp)
 	tab.PlayerKey = GetKey(wisp.Player)
-	tab.Player = EntityPtr(wisp.Player)
 	tab.Initialized = true
 end
 
@@ -417,6 +427,7 @@ function HiddenItemManager:LoadData(saveData)
 		WISPS_TO_REMOVE = {}
 	end
 	DATA = {}
+	WISP_PTRS = {}
 	HiddenItemManager:CheckAllWisps()
 end
 
@@ -427,7 +438,7 @@ function HiddenItemManager:CheckWisp(wisp)
 	local wispKey = GetKey(wisp)
 	local wispData = INDEX[wispKey]
 	
-	if not wisp:GetData().isHiddenItemManagerWisp and wispData then
+	if not IsManagedWisp(wisp) and wispData then
 		-- This wisp isn't marked as one of our wisps, but we're supposed to have a wisp with this InitSeed.
 		KeepWispHidden(wisp)
 		
@@ -492,7 +503,7 @@ function HiddenItemManager:ItemWispUpdate(wisp)
 	
 	local key = GetKey(wisp)
 	
-	if wisp:GetData().isHiddenItemManagerWisp then
+	if IsManagedWisp(wisp) then
 		KeepWispHidden(wisp)
 		
 		local data = INDEX[key]
@@ -506,14 +517,14 @@ function HiddenItemManager:ItemWispUpdate(wisp)
 					ClearData(playerKey, groupName, wisp.SubType, key)
 				end
 			end
-			wisp:GetData().isHiddenItemManagerWisp = false
+			UntagWisp(wisp)
 			WISPS_TO_REMOVE[key] = true
 		else
 			-- Check if timed wisp has expired.
-			local timedOut = data.Duration and data.AddTime + data.Duration < game:GetFrameCount()
-			-- Check this with wisp.Player instead of the player EntityPtr stored in the data to get the correct Bazarus.
+			local timedOut = (data.Duration and data.AddTime + data.Duration < game:GetFrameCount())
+			-- Remove the wisp if the player appears to get replaced with a new one.
 			-- Main thing this triggers on is Genesis.
-			local playerGone = not wisp.Player or GetKey(wisp.Player) ~= data.PlayerKey
+			local playerGone = (not wisp.Player or GetKey(wisp.Player) ~= data.PlayerKey)
 			if timedOut or playerGone then
 				RemoveWisp(key)
 			end
@@ -610,7 +621,7 @@ AddCallback(ModCallbacks.MC_POST_NEW_LEVEL, HiddenItemManager.PostNewLevel)
 
 -- Disables collisions for wisps.
 function HiddenItemManager:ItemWispCollision(wisp)
-	if wisp:GetData().isHiddenItemManagerWisp then
+	if IsManagedWisp(wisp) then
 		return true
 	end
 end
@@ -618,12 +629,12 @@ AddCallback(ModCallbacks.MC_PRE_FAMILIAR_COLLISION, HiddenItemManager.ItemWispCo
 
 -- Prevents wisps from taking or dealing damage.
 function HiddenItemManager:ItemWispDamage(entity, damage, damageFlags, damageSourceRef, damageCountdown)
-	if entity and entity.Type == EntityType.ENTITY_FAMILIAR and entity.Variant == FamiliarVariant.ITEM_WISP and entity:GetData().isHiddenItemManagerWisp then
+	if entity and entity.Type == EntityType.ENTITY_FAMILIAR and entity.Variant == FamiliarVariant.ITEM_WISP and IsManagedWisp(entity) then
 		return false
 	end
 	
 	if damageSourceRef.Type == EntityType.ENTITY_FAMILIAR and damageSourceRef.Variant == FamiliarVariant.ITEM_WISP
-			and damageSourceRef.Entity and damageSourceRef.Entity:GetData().isHiddenItemManagerWisp then
+			and damageSourceRef.Entity and IsManagedWisp(damageSourceRef.Entity) then
 		return false
 	end
 end
@@ -633,7 +644,7 @@ AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG, HiddenItemManager.ItemWispDamage)
 function HiddenItemManager:ItemWispTears(tear)
 	if tear.SpawnerEntity and tear.SpawnerEntity.Type == EntityType.ENTITY_FAMILIAR
 			and tear.SpawnerEntity.Variant == FamiliarVariant.ITEM_WISP
-			and tear.SpawnerEntity:GetData().isHiddenItemManagerWisp then
+			and IsManagedWisp(tear.SpawnerEntity) then
 		tear:Remove()
 	end
 end
