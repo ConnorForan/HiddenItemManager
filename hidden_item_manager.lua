@@ -6,7 +6,7 @@
 -- Please keep in mind that the game has a TOTAL FAMILIAR LIMIT of 64 at a time! Each item provided by this is a wisp familiar!
 -- So given that, please be careful and considerate when using this.
 -- 
--- GitHub Page: https://github.com/ConnorForan/PauseScreenCompletionMarksAPI
+-- GitHub Page: https://github.com/ConnorForan/HiddenItemManager
 -- Please refer to the GitHub page or the README file for more information and a guide.
 -- 
 -- Thanks Cake, DeadInfinity, Erfly, Taiga, and anyone else who might have helped figure out these wisp tricks.
