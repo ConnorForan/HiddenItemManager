@@ -189,7 +189,7 @@ local function KillWisp(wisp)
 	if not wisp then return end
 	
 	if wisp.Player and wisp.SubType == CollectibleType.COLLECTIBLE_MARS then
-		player:TryRemoveNullCostume(NullItemID.ID_MARS)
+		wisp.Player:TryRemoveNullCostume(NullItemID.ID_MARS)
 	end
 	
 	-- Kill() after Remove() makes sure the effects of wisps are removed properly while still skipping the death animation/sounds.
