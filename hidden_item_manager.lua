@@ -180,6 +180,7 @@ end
 local function GetPlayer(tab)
 	if not tab then return end
 	
+	local wisp = GetWisp(tab)
 	if wisp and wisp.Player and wisp.Player:Exists() then
 		return wisp.Player
 	end
