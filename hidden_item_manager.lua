@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 1.4
+-- Version 1.5
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -42,8 +42,8 @@ function HiddenItemManager:Init(mod)
 	if not initialized then
 		HiddenItemManager.Mod = mod
 		
-		for _, tab in pairs(Callbacks) do
-			mod:AddCallback(tab.Callback, tab.Func, tab.Param)
+		for _, tab in ipairs(Callbacks) do
+			mod:AddPriorityCallback(tab.Callback, CallbackPriority.IMPORTANT, tab.Func, tab.Param)
 		end
 		HiddenItemManager.WispTag = "HiddenItemManager:" .. mod.Name
 		
@@ -183,6 +183,14 @@ local function GetPlayer(tab)
 	local wisp = GetWisp(tab)
 	if wisp and wisp.Player and wisp.Player:Exists() then
 		return wisp.Player
+	end
+	
+	-- Player wasn't found on the wisp. Might be due to us temporarily nulling `wisp.Player` to avoid Sacrificial Altar. See if we can find the player.
+	for i=0, game:GetNumPlayers()-1 do
+		local player = game:GetPlayer(i)
+		if player and player:Exists() and GetKey(player) == tab.PlayerKey then
+			return player
+		end
 	end
 end
 
@@ -647,6 +655,7 @@ function HiddenItemManager:ItemWispTears(tear)
 			and tear.SpawnerEntity.Variant == FamiliarVariant.ITEM_WISP
 			and IsManagedWisp(tear.SpawnerEntity) then
 		tear:Remove()
+		return true
 	end
 end
 AddCallback(ModCallbacks.MC_POST_TEAR_INIT, HiddenItemManager.ItemWispTears)
@@ -674,6 +683,9 @@ AddCallback(ModCallbacks.MC_USE_ITEM, function()
 		
 		if not player then
 			LOG_ERROR("Somehow lost track of player during Sacrificial Altar protection. Giving up on item #" .. data.Item .. " from group: " .. data.Group)
+			if wisp then
+				wisp.Player = Isaac.GetPlayer()  -- De-nil `wisp.Player` to avoid crashing if this somehow happens.
+			end
 			RemoveWisp(key)
 		elseif wisp then
 			wisp.Player = player
