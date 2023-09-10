@@ -83,10 +83,10 @@ You can then access the same instance of the library from any file inside your m
 local hiddenItemManager = require("myMod.lib.hidden_item_manager")
 ```
 
-You could use "include" as well, but remember that you can only do this ONCE within your entire mod, since "include" always creates a new, uninitialized instance of the library.
+If you prefer, you may alternatively use "include", but remember that you can only do this ONCE within your entire mod, since "include" always creates a new, uninitialized instance of the library.
 
 ```lua
-local hiddenItemManager = include("hidden_item_manager"):Init(mod)
+mod.HiddenItemManager = include("hidden_item_manager"):Init(mod)
 ```
 
 ### What are "Groups?"

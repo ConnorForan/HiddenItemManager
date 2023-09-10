@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 2.0
+-- Version 2.1
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -27,42 +27,6 @@ local kPersistentWispMarker = 617413666
 local kEarlyCallbackPriority = -9999
 local kLateCallbackPriority = 9999
 
---------------------------------------------------
--- Initialization
-
-local Callbacks = {}
-
-local function AddCallback(callbackID, func, param, priority)
-	table.insert(Callbacks, {
-		Callback = callbackID,
-		Func = func,
-		Param = param,
-		Priority = priority or kEarlyCallbackPriority,
-	})
-end
-local function AddLateCallback(callbackID, func, param)
-	AddCallback(callbackID, func, param, kLateCallbackPriority)
-end
-
-local initialized = false
-function HiddenItemManager:Init(mod)
-	if not initialized then
-		HiddenItemManager.Mod = mod
-		
-		for _, tab in ipairs(Callbacks) do
-			mod:AddPriorityCallback(tab.Callback, tab.Priority, tab.Func, tab.Param)
-		end
-		
-		HiddenItemManager.WispTag = "HiddenItemManager:" .. mod.Name
-		
-		initialized = true
-	end
-	return HiddenItemManager
-end
-
---------------------------------------------------
--- Storage/Utility
-
 local function LOG_ERROR(str)
 	local prefix = ""
 	if HiddenItemManager.Mod then
@@ -81,6 +45,42 @@ local function LOG(str)
 	local fullStr = "[" .. prefix .. "HiddenItemManager]: " .. str
 	Isaac.DebugString(fullStr)
 end
+
+--------------------------------------------------
+-- Initialization
+
+local Callbacks = {}
+
+local function AddCallback(callbackID, func, param, priority)
+	table.insert(Callbacks, {
+		Callback = callbackID,
+		Func = func,
+		Param = param,
+		Priority = priority or kEarlyCallbackPriority,
+	})
+end
+local function AddLateCallback(callbackID, func, param)
+	AddCallback(callbackID, func, param, kLateCallbackPriority)
+end
+
+function HiddenItemManager:Init(mod)
+	HiddenItemManager.Mod = mod
+	HiddenItemManager.WispTag = "HiddenItemManager:" .. mod.Name
+	
+	if not mod.AddedHiddenItemManagerCallbacks then
+		for _, tab in ipairs(Callbacks) do
+			mod:AddPriorityCallback(tab.Callback, tab.Priority, tab.Func, tab.Param)
+		end
+		mod.AddedHiddenItemManagerCallbacks = true
+	else
+		LOG_ERROR("More than one instance initialized!")
+	end
+	
+	return HiddenItemManager
+end
+
+--------------------------------------------------
+-- Storage/Utility
 
 local kDefaultGroup = "HIDDEN_ITEM_MANAGER_DEFAULT"
 
@@ -317,6 +317,9 @@ end
 
 -- Spawns a hidden item wisp.
 local function SpawnWisp(player, itemID, duration, group, removeOnNewRoom, removeOnNewLevel)
+	if not HiddenItemManager.Mod then
+		LOG_ERROR("Not initialized! Did you forget to call `hiddenItemManager:Init(mod)`?")
+	end
 	group = GetGroup(group)
 	if not itemID or itemID < 1 then
 		LOG_ERROR("Attempted to add invalid CollectibleType `" .. (itemID or "NULL") .. "` to group: " .. group)
