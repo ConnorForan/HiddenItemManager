@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 2.1
+-- Version 2.2
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -489,12 +489,14 @@ function HiddenItemManager:LoadData(saveData)
 	end
 	DATA = {}
 	HiddenItemManager.INITIALIZING = false
-	for _, ptr in pairs(WISP_PTRS) do
+	-- Check & re-initialize all existing wisps, just in case.
+	local oldPtrs = WISP_PTRS
+	WISP_PTRS = {}
+	for _, ptr in pairs(oldPtrs) do
 		if ptr and ptr.Ref then
 			HiddenItemManager:ItemWispUpdate(ptr.Ref:ToFamiliar())
 		end
 	end
-	WISP_PTRS = {}
 	HiddenItemManager:CheckWisps()
 end
 
@@ -514,8 +516,9 @@ function HiddenItemManager:ItemWispUpdate(wisp)
 		local player = wisp.Player
 		local playerKey = GetPlayerKey(player)
 		
-		if not IsManagedWisp(wisp) then
+		if not IsManagedWisp(wisp) or not WISP_PTRS[wispKey] then
 			-- This wisp isn't marked as one of our wisps, but we're supposed to have a wisp with this InitSeed.
+			-- OR: we don't have a pointer to this wisp cached, meaning we may have reloaded a save or something.
 			
 			-- Check if there's already an active wisp for this effect.
 			local existingWisp = GetWisp(wispData)
@@ -527,7 +530,8 @@ function HiddenItemManager:ItemWispUpdate(wisp)
 				return false
 			end
 			
-			-- Most likely, we've quit and continued a run. Re-initialize this wisp as a hidden one.
+			-- Most likely, we've quit and continued a run, reloaded a save, or luamodded, or something.
+			-- Re-initialize this wisp as a hidden one.
 			InsertData(playerKey, wispData.Group, wispData.Item, wispKey, wispData)
 			InitializeWisp(wisp)
 		end
