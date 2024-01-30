@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 2.2
+-- Version 2.2.1
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -445,10 +445,12 @@ function HiddenItemManager:GetStacks(player, group)
 	
 	local output = {}
 	
-	for itemID, _ in pairs(tab) do
-		local count = HiddenItemManager:CountStack(player, itemID, group)
-		if count > 0 then
-			output[itemID] = count
+	if tab then
+		for itemID, _ in pairs(tab) do
+			local count = HiddenItemManager:CountStack(player, itemID, group)
+			if count > 0 then
+				output[itemID] = count
+			end
 		end
 	end
 	
