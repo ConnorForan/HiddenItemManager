@@ -1,5 +1,5 @@
 -- Hidden Item Manager, by Connor (aka Ghostbroster)
--- Version 2.2.1
+-- Version 2.3
 -- 
 -- Manages a system of hidden Lemegeton Item Wisps to simulate the effects of passive items without actually granting the player those items (so they can't be removed or rerolled!).
 -- Good for giving the effect of an item temporarily, making an item effect "innate" to a character, and all sorts of other stuff, probably.
@@ -104,6 +104,9 @@ local INDEX = {}
 -- Cache for EntityPtrs to wisps.
 local WISP_PTRS = {}
 
+-- Groups that should not apply costumes from wisps.
+local NO_COSTUME_GROUPS = {}
+
 -- Removes all empty subtables from a given table.
 local function CleanUp(tab)
 	for k, v in pairs(tab) do
@@ -130,9 +133,6 @@ local function FindData(playerKey, group, itemID, allowInit)
 			return
 		end
 		DATA[playerKey] = {}
-	end
-	if not group then
-		return DATA[playerKey]
 	end
 	if not DATA[playerKey][group] then
 		if not allowInit then
@@ -313,6 +313,23 @@ local function InitializeWisp(wisp)
 	WISP_PTRS[wispKey] = EntityPtr(wisp)
 	tab.PlayerKey = GetPlayerKey(wisp.Player)
 	tab.Initialized = true
+	
+	if NO_COSTUME_GROUPS[tab.Group] and not wisp.Player:HasCollectible(wisp.SubType, true) then
+		wisp.Player:RemoveCostume(Isaac.GetItemConfig():GetCollectible(wisp.SubType))
+	end
+end
+
+-- Removes item costumes from players if they should be hidden.
+function HiddenItemManager:CheckCostumes()
+	for key, data in pairs(INDEX) do
+		local wisp = GetWisp(data)
+		local player = GetPlayer(data)
+		if wisp and player then
+			if NO_COSTUME_GROUPS[data.Group] and not player:HasCollectible(wisp.SubType, true) then
+				player:RemoveCostume(Isaac.GetItemConfig():GetCollectible(wisp.SubType))
+			end
+		end
+	end
 end
 
 -- Spawns a hidden item wisp.
@@ -354,6 +371,12 @@ end
 
 --------------------------------------------------
 -- API Functions
+
+-- Hide costumes for any wisps added in the specified group.
+-- Will hide costumes for wisps in the default group if unspecified.
+function HiddenItemManager:HideCostumes(group)
+	NO_COSTUME_GROUPS[GetGroup(group)] = true
+end
 
 -- Add a hidden item(s) that will persist through room and floor transitions.
 function HiddenItemManager:Add(player, itemID, duration, numToAdd, group)
@@ -410,10 +433,9 @@ end
 
 -- Removes all hidden items from the specified group.
 function HiddenItemManager:RemoveAll(player, group)
-	group = GetGroup(group)
-	local pKey = GetPlayerKey(player)
-	if DATA[pKey] then
-		for itemID, wispList in pairs(DATA[pKey][group]) do
+	local tab = FindData(GetPlayerKey(player), group)
+	if tab then
+		for itemID, wispList in pairs(tab) do
 			for wispKey, _ in pairs(wispList) do
 				RemoveWisp(wispKey)
 			end
@@ -668,6 +690,8 @@ function HiddenItemManager:PostNewRoom()
 			data.ErrorCount = 0
 		end
 	end
+	
+	HiddenItemManager:CheckCostumes()
 end
 AddCallback(ModCallbacks.MC_POST_NEW_ROOM, HiddenItemManager.PostNewRoom)
 
