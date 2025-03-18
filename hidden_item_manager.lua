@@ -563,7 +563,7 @@ function HiddenItemManager:ItemWispUpdate(wisp)
 		-- Check if timed wisp has expired.
 		local timedOut = (wispData.Duration and wispData.AddTime + wispData.Duration < game:GetFrameCount())
 		-- Remove the wisp if the player disappears or seems to get replaced.
-		local playerGone = (not player or playerKey ~= wispData.PlayerKey)
+		local playerGone = (not player or playerKey ~= wispData.PlayerKey or not EntityRef(player).Entity:Exists())
 		
 		if timedOut or playerGone then
 			RemoveWisp(wispKey)
